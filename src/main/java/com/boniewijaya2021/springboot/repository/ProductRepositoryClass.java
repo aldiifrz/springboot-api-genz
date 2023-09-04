@@ -1,0 +1,172 @@
+package com.boniewijaya2021.springboot.repository;
+
+import com.boniewijaya2021.springboot.pojo.ProductPojo;
+import com.boniewijaya2021.springboot.pojo.ProductPojo;
+import com.boniewijaya2021.springboot.pojo.ProductPostPojo;
+import com.boniewijaya2021.springboot.utility.AppUtil;
+import org.apache.tomcat.jni.Local;
+import org.springframework.stereotype.Repository;
+
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+import javax.transaction.Transactional;
+import java.lang.reflect.Field;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.UUID;
+
+@Repository
+public class ProductRepositoryClass {
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    public List<ProductPojo> getDataDinamic(String namaBarang, String tipeBarang) {
+        StringBuilder qb = new StringBuilder();
+
+        if (namaBarang != null) {
+            qb.append(" and nama_barang = :namaBarang \n");
+        }
+        if (tipeBarang != null) {
+            qb.append("and tipe_barang = :tipeBarang \n");
+        }
+
+        String sisipan = qb.toString();
+
+
+        String QueryText = "SELECT cast (id_produksi as varchar) id_produksi, nama_barang, tipe_barang, asal_barang, tanggal_produksi, cast (biaya_produksi as varchar)biaya_produksi\n" +
+                "FROM sample.tbl_products  WHERE 1=1 \n" + sisipan;
+
+        Query query = entityManager.createNativeQuery(QueryText);
+        if (namaBarang != null) {
+            query.setParameter("namaBarang", namaBarang);
+        }
+        if (tipeBarang != null) {
+            query.setParameter("tipeBarang", tipeBarang);
+        }
+
+
+        List hasil = query.getResultList();
+        List<ProductPojo> result = new ArrayList<>();
+
+        Iterator itr = hasil.iterator();
+        while (itr.hasNext()) {
+            ProductPojo browse = new ProductPojo();
+            Object[] obj = (Object[]) itr.next();
+            String idProduksi = String.valueOf(obj[0]);
+            String namaBarangs = String.valueOf(obj[1]);
+            String tipeBarangs = String.valueOf(obj[2]);
+            String asalBarang = String.valueOf(obj[3]);
+            LocalDateTime tanggalProduksi = ((Timestamp) obj[4]).toLocalDateTime();
+            Integer biayaProduksi = Integer.valueOf((String) obj[5]);
+
+
+            browse.setIdProduksi(idProduksi);
+            browse.setNamaBarang(namaBarangs);
+            browse.setTipeBarang(tipeBarangs);
+            browse.setAsalBarang(asalBarang);
+            browse.setTanggalProduksi(tanggalProduksi);
+            browse.setBiayaProduksi(biayaProduksi);
+            result.add(browse);
+        }
+        return result;
+    }
+
+
+    @Transactional
+    public void insertDataBarang(ProductPojo productsPojo) {
+        UUID generatedUUID = UUID.randomUUID();
+        String uuid = generatedUUID.toString();
+        String namaBarang = productsPojo.getNamaBarang();
+        String tipeBarang = productsPojo.getTipeBarang();
+        String asalBarang = productsPojo.getAsalBarang();
+        LocalDateTime tanggalProduksi = productsPojo.getTanggalProduksi();
+        Integer biayaProduksi = productsPojo.getBiayaProduksi();
+
+        String queryText = "INSERT INTO sample.tbl_products " +
+                "(id_produksi, nama_barang, tipe_barang, asal_barang, tanggal_produksi, biaya_produksi)\n" +
+                "VALUES " +
+                "(CAST(:idProduksi AS UUID),:namaBarang,:tipeBarang,:asalBarang,:tanggalProduksi,:biayaProduksi)";
+
+        entityManager.createNativeQuery(queryText)
+                .setParameter("idProduksi", uuid)
+                .setParameter("namaBarang", namaBarang)
+                .setParameter("tipeBarang", tipeBarang)
+                .setParameter("asalBarang", asalBarang)
+                .setParameter("tanggalProduksi", tanggalProduksi)
+                .setParameter("biayaProduksi", biayaProduksi).executeUpdate();
+    }
+
+    @Transactional
+    public void updateDataBarang(ProductPojo productPojo) {
+        StringBuilder queryString = new StringBuilder("UPDATE sample.tbl_produksi SET");
+
+        // Iterate over the attributes of the provided POJO
+        for (Field field : ProductPojo.class.getDeclaredFields()) {
+            field.setAccessible(true);
+            Object value;
+            try {
+                if (field.getName().equals("idProduksi")) {
+                    continue;
+                } else {
+                    value = field.get(productPojo);
+                }
+            } catch (IllegalAccessException e) {
+                continue;
+            }
+
+            if (value != null) {
+                String snakeCaseField = AppUtil.camelCaseToUnderscore(field.getName());
+                queryString.append(" ").append(snakeCaseField).append(" = :").append(field.getName()).append(",");
+            }
+        }
+
+        queryString.setLength(queryString.length() - 1);
+
+        queryString.append(" WHERE id_produksi = CAST(:idProduksi AS UUID)");
+
+        Query query = entityManager.createNativeQuery(queryString.toString());
+
+        for (Field field : ProductPojo.class.getDeclaredFields()) {
+            field.setAccessible(true);
+            Object value;
+            try {
+                if (field.getName().equals("idProduksi")) {
+                    continue;
+                } else {
+                    value = field.get(productPojo);
+                }
+            } catch (IllegalAccessException e) {
+                continue;
+            }
+
+            if (value != null) {
+                query.setParameter(field.getName(), value);
+            }
+        }
+
+        query.setParameter("idProduksi", productPojo.getIdProduksi());
+        query.executeUpdate();
+    }
+
+
+    public void deleteDataBarang(UUID idProduk) {
+        String queryText = "DELETE FROM sample.tbl_product " +
+                "WHERE " +
+                "id_produk = CAST(:idProduk AS UUID)";
+        entityManager.createNativeQuery(queryText)
+                .setParameter("idProduk", idProduk)
+                .executeUpdate();
+    }
+}
+
+
+
+
+
